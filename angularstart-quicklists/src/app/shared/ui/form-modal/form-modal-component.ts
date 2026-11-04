@@ -4,7 +4,7 @@ import { FormGroup, ReactiveFormsModule } from '@angular/forms';
 
 @Component({
   imports: [ReactiveFormsModule, KeyValuePipe],
-  selector: 'app-form-modal-component',
+  selector: 'app-form-modal',
   styles: ``,
   template: ` 
     <header>

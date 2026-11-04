@@ -18,13 +18,14 @@ import { ChecklistListComponent } from './ui/checklist-list/checklist-list.compo
 
    <app-modal [isOpen]="!!checklistBeingEdited()">
     <ng-template>
-    <app-form-modal-component 
+    <app-form-modal 
     [formGroup]="checkListForm" 
     [title]="checklistBeingEdited()?.title 
              ? checklistBeingEdited()!.title!
              : 'Add Checklist' " 
     (close)="checklistBeingEdited.set(null)" 
-    (save)="checklistService.add$.next(checkListForm.getRawValue())"></app-form-modal-component>
+    (save)="checklistService.add$.next(checkListForm.getRawValue())">
+    </app-form-modal>
     </ng-template>
    </app-modal>
 
