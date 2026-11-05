@@ -11,36 +11,51 @@ import { ChecklistService } from '../../../shared/data-access/checklist.service'
 import { ChecklistItemListComponent } from '../checklist-item-list/checklist-item-list.component';
 
 @Component({
-  imports: [ChecklistHeaderComponent, ModalComponent, FormModalComponent, ChecklistItemListComponent],
+  imports: [
+    ChecklistHeaderComponent,
+    ModalComponent,
+    FormModalComponent,
+    ChecklistItemListComponent,
+  ],
   selector: 'app-checklist',
   styles: ``,
-  template: ` 
-  @if (checklist(); as checklist){
-  <app-checklist-header 
-  [checklist]="checklist" 
-  (addItem)="checklistItemIsBeingEdited.set({})"
-  (resetChecklist)="checklistItemService.reset$.next($event)" />
-}
-<app-modal [isOpen] = "!!checklistItemIsBeingEdited()">
-  <ng-template>
-    <app-form-modal
-    title="Create item"
-    [formGroup]="checklistItemForm"
-    (save)="checklistItemService.add$.next({
-      item:checklistItemForm.getRawValue(),
-      checklistId: checklist()?.id!,
-      })"
-      (close)="checklistItemIsBeingEdited.set(null)"
-      >
-      
-    </app-form-modal>
-  </ng-template>
-</app-modal>
+  template: `
+    @if (checklist(); as checklist) {
+      <app-checklist-header
+        [checklist]="checklist"
+        (addItem)="checklistItemIsBeingEdited.set({})"
+        (resetChecklist)="checklistItemService.reset$.next($event)"
+      />
+    }
+    <app-modal [isOpen]="!!checklistItemIsBeingEdited()">
+      <ng-template>
+        <app-form-modal
+          title="Create item"
+          [formGroup]="checklistItemForm"
+          (save)="
+            checklistItemIsBeingEdited()?.id
+              ? checklistItemService.edit$.next({
+                  id: checklistItemIsBeingEdited()!.id!,
+                  data: checklistItemForm.getRawValue(),
+                })
+              : checklistItemService.add$.next({
+                  item: checklistItemForm.getRawValue(),
+                  checklistId: checklist()?.id!,
+                })
+          "
+          (close)="checklistItemIsBeingEdited.set(null)"
+        >
+        </app-form-modal>
+      </ng-template>
+    </app-modal>
 
-<app-checklist-item-list 
-[checklistItems]="items()" 
-(toggle)="checklistItemService.toggle$.next($event)"/>
-   `,
+    <app-checklist-item-list
+      [checklistItems]="items()"
+      (toggle)="checklistItemService.toggle$.next($event)"
+      (edit)="checklistItemIsBeingEdited.set($event)"
+      (delete)="checklistItemService.delete$.next($event)"
+    />
+  `,
 })
 export default class ChecklistComponent {
   checklistService = inject(ChecklistService);
@@ -52,29 +67,33 @@ export default class ChecklistComponent {
 
   params = toSignal(this.route.paramMap);
 
-  checklist = computed(() => 
+  checklist = computed(() =>
     this.checklistService
-  .checklists()
-  .find((checklist) => checklist.id === this.params()?.get('id'))
+      .checklists()
+      .find((checklist) => checklist.id === this.params()?.get('id')),
   );
 
-    items = computed(() =>
+  items = computed(() =>
     this.checklistItemService
       .checklistItems()
-      .filter((item) => item.checklistId === this.params()?.get('id'))
+      .filter((item) => item.checklistId === this.params()?.get('id')),
   );
 
   checklistItemForm = this.fb.nonNullable.group({
-    title: ['']
+    title: [''],
   });
 
   constructor() {
     effect(() => {
-      const checklistItem = this.checklistItemIsBeingEdited()
-      
-      if(!checklistItem){
+      const checklistItem = this.checklistItemIsBeingEdited();
+
+      if (!checklistItem) {
         this.checklistItemForm.reset();
+      } else {
+        this.checklistItemForm.patchValue({
+          title: checklistItem.title,
+        });
       }
-    })
+    });
   }
 }

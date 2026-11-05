@@ -11,42 +11,56 @@ import { ChecklistListComponent } from './ui/checklist-list/checklist-list.compo
   selector: 'app-home-component',
   styles: ``,
   template: `
-   <header>
-    <h1>Quicklists</h1>
-    <button (click)="checklistBeingEdited.set({})">Add Quicklist</button>
-   </header>
+    <header>
+      <h1>Quicklists</h1>
+      <button (click)="checklistBeingEdited.set({})">Add Quicklist</button>
+    </header>
 
-   <app-modal [isOpen]="!!checklistBeingEdited()">
-    <ng-template>
-    <app-form-modal 
-    [formGroup]="checkListForm" 
-    [title]="checklistBeingEdited()?.title 
-             ? checklistBeingEdited()!.title!
-             : 'Add Checklist' " 
-    (close)="checklistBeingEdited.set(null)" 
-    (save)="checklistService.add$.next(checkListForm.getRawValue())">
-    </app-form-modal>
-    </ng-template>
-   </app-modal>
+    <app-modal [isOpen]="!!checklistBeingEdited()">
+      <ng-template>
+        <app-form-modal
+          [formGroup]="checkListForm"
+          [title]="checklistBeingEdited()?.title ? checklistBeingEdited()!.title! : 'Add Checklist'"
+          (close)="checklistBeingEdited.set(null)"
+          (save)="
+            checklistBeingEdited()?.id
+              ? checklistService.edit$.next({
+                  id: checklistBeingEdited()!.id!,
+                  data: checkListForm.getRawValue(),
+                })
+              : checklistService.add$.next(checkListForm.getRawValue())
+          "
+        >
+        </app-form-modal>
+      </ng-template>
+    </app-modal>
 
-   <app-checklist-list [checklistList]="checklistService.checklists()"></app-checklist-list>
-   `,
+    <app-checklist-list
+      [checklistList]="checklistService.checklists()"
+      (edit)="checklistBeingEdited.set($event)"
+      (delete)="checklistService.remove$.next($event)"
+    ></app-checklist-list>
+  `,
 })
 export default class HomeComponent {
   fb = inject(FormBuilder);
   checklistService = inject(ChecklistService);
   checklistBeingEdited = signal<Partial<Checklist> | null>(null);
   checkListForm = this.fb.nonNullable.group({
-    title: ['', Validators.required]
+    title: ['', Validators.required],
   });
 
   constructor() {
     effect(() => {
       const checklist = this.checklistBeingEdited();
 
-      if(!checklist) {
+      if (!checklist) {
         this.checkListForm.reset();
+      } else {
+        this.checkListForm.patchValue({
+          title: checklist.title,
+        });
       }
-    })
+    });
   }
 }

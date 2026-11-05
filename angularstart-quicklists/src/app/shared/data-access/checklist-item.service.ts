@@ -1,60 +1,120 @@
-import { computed, Injectable, signal } from "@angular/core";
-import { AddChecklistItem, ChecklistItem, RemoveChecklistItem } from "../interfaces/checklistItem";
-import { Subject } from "rxjs";
-import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
-import { RemoveChecklist } from "../interfaces/checklist";
+import { computed, effect, inject, Injectable, signal } from '@angular/core';
+import {
+  AddChecklistItem,
+  ChecklistItem,
+  EditChecklistItem,
+  RemoveChecklistItem,
+} from '../interfaces/checklistItem';
+import { Subject } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { RemoveChecklist } from '../interfaces/checklist';
+import { StorageService } from './storage.service';
 
 interface ChecklistItemState {
-    checklistItems: ChecklistItem[]
+  checklistItems: ChecklistItem[];
+  loaded: boolean;
+  error: string | null;
 }
 
 @Injectable({
-    providedIn:'root'
+  providedIn: 'root',
 })
-
 export class ChecklistItemService {
-    private state = signal<ChecklistItemState>({
-        checklistItems: []
+  storageService = inject(StorageService);
+
+  private state = signal<ChecklistItemState>({
+    checklistItems: [],
+    loaded: false,
+    error: null,
+  });
+
+  loaded = computed(() => this.state().loaded);
+  checklistItems = computed(() => this.state().checklistItems);
+
+  private checklistItemsLoaded$ = this.storageService.loadChecklistItems();
+
+  add$ = new Subject<AddChecklistItem>();
+  edit$ = new Subject<EditChecklistItem>();
+  delete$ = new Subject<RemoveChecklistItem>();
+  toggle$ = new Subject<RemoveChecklistItem>();
+  reset$ = new Subject<RemoveChecklist>();
+  checklistRemoved$ = new Subject<RemoveChecklist>();
+
+  constructor() {
+    this.add$.pipe(takeUntilDestroyed()).subscribe((checklistItem) =>
+      this.state.update((state) => ({
+        ...state,
+        checklistItems: [
+          ...state.checklistItems,
+          {
+            ...checklistItem.item,
+            id: Date.now().toString(),
+            checklistId: checklistItem.checklistId,
+            checked: false,
+          },
+        ],
+      })),
+    );
+
+    this.edit$.pipe(takeUntilDestroyed()).subscribe((update) =>
+      this.state.update((state) => ({
+        ...state,
+        checklistItems: state.checklistItems.map((item) =>
+          item.id === update.id ? { ...item, title: update.data.title } : item,
+        ),
+      })),
+    );
+
+    this.delete$.pipe(takeUntilDestroyed()).subscribe((id) =>
+      this.state.update((state) => ({
+        ...state,
+        checklistItems: state.checklistItems.filter((item) => item.id !== id),
+      })),
+    );
+
+    this.toggle$.pipe(takeUntilDestroyed()).subscribe((checklistItemId) =>
+      this.state.update((state) => ({
+        ...state,
+        checklistItems: state.checklistItems.map((item) =>
+          item.id === checklistItemId ? { ...item, checked: !item.checked } : item,
+        ),
+      })),
+    );
+
+    this.reset$.pipe(takeUntilDestroyed()).subscribe((checklistId) =>
+      this.state.update((state) => ({
+        ...state,
+        checklistItems: state.checklistItems.map((item) =>
+          item.checklistId === checklistId ? { ...item, checked: false } : item,
+        ),
+      })),
+    );
+
+    this.checklistItemsLoaded$.pipe(takeUntilDestroyed()).subscribe({
+      next: (checklistItems) =>
+        this.state.update((state) => ({
+          ...state,
+          checklistItems,
+          loaded: true,
+        })),
+      error: (err) =>
+        this.state.update((state) => ({
+          ...state,
+          error: err,
+        })),
     });
 
-    checklistItems = computed(() => this.state().checklistItems);
+    this.checklistRemoved$.pipe(takeUntilDestroyed()).subscribe((checklistId) =>
+      this.state.update((state) => ({
+        ...state,
+        checklistItems: state.checklistItems.filter((item) => item.checklistId !== checklistId),
+      })),
+    );
 
-    add$ = new Subject<AddChecklistItem>();
-    toggle$ = new Subject<RemoveChecklistItem>();
-    reset$ = new Subject<RemoveChecklist>();
-
-    constructor() {
-        this.add$.pipe(takeUntilDestroyed()).subscribe((checklistItem) => 
-        this.state.update((state) => ({
-            ...state,
-            checklistItems: [
-                ...state.checklistItems, 
-                {
-                    ...checklistItem.item,
-                    id: Date.now().toString(),
-                    checklistId: checklistItem.checklistId,
-                    checked: false
-                }
-            ]
-        })))
-
-        this.toggle$.pipe(takeUntilDestroyed()).subscribe((checklistItemId) => 
-        this.state.update((state) => ({
-            ...state,
-            checklistItems: state.checklistItems.map((item) => 
-            item.id === checklistItemId 
-            ? {...item, checked: !item.checked} 
-            : item )
-        })))
-
-        this.reset$.pipe(takeUntilDestroyed()).subscribe((checklistId) =>
-        this.state.update((state) => ({
-            ...state,
-            checklistItems: state.checklistItems.map((item) => 
-            item.checklistId === checklistId 
-            ? {...item, checked: false} 
-            : item )
-        })))
-
-    }
-} 
+    effect(() => {
+      if (this.loaded()) {
+        this.storageService.saveChecklistItems(this.checklistItems());
+      }
+    });
+  }
+}
