@@ -16,7 +16,10 @@ import { ChecklistItemListComponent } from '../checklist-item-list/checklist-ite
   styles: ``,
   template: ` 
   @if (checklist(); as checklist){
-  <app-checklist-header [checklist]="checklist" (addItem)="checklistItemIsBeingEdited.set({})" />
+  <app-checklist-header 
+  [checklist]="checklist" 
+  (addItem)="checklistItemIsBeingEdited.set({})"
+  (resetChecklist)="checklistItemService.reset$.next($event)" />
 }
 <app-modal [isOpen] = "!!checklistItemIsBeingEdited()">
   <ng-template>
@@ -34,7 +37,9 @@ import { ChecklistItemListComponent } from '../checklist-item-list/checklist-ite
   </ng-template>
 </app-modal>
 
-<app-checklist-item-list [checklistItems]="items()" />
+<app-checklist-item-list 
+[checklistItems]="items()" 
+(toggle)="checklistItemService.toggle$.next($event)"/>
    `,
 })
 export default class ChecklistComponent {
