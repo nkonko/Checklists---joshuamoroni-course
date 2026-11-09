@@ -1,4 +1,4 @@
-import { inject, Injectable, InjectionToken, PLATFORM_ID } from '@angular/core';
+import { inject, Injectable, InjectionToken, PLATFORM_ID, resource } from '@angular/core';
 import { of } from 'rxjs';
 import { Checklist } from '../interfaces/checklist';
 import { ChecklistItem } from '../interfaces/checklistItem';
@@ -17,13 +17,25 @@ export class StorageService {
   storage = inject(LOCAL_STORAGE);
 
   loadChecklist() {
-    const checklist = this.storage.getItem('checklists');
-    return of(checklist ? (JSON.parse(checklist) as Checklist[]) : []);
+    return resource({
+      loader: () =>
+        Promise.resolve(this.storage.getItem('checklists')).then((checklist) =>
+          checklist ? (JSON.parse(checklist) as Checklist[]) : [],
+        ),
+    });
+
+    // Using Observables
+    // const checklist = this.storage.getItem('checklists');
+    // return of(checklist ? (JSON.parse(checklist) as Checklist[]) : []);
   }
 
   loadChecklistItems() {
-    const checklistsItems = this.storage.getItem('checklistItems');
-    return of(checklistsItems ? (JSON.parse(checklistsItems) as ChecklistItem[]) : []);
+    return resource({
+      loader: () =>
+        Promise.resolve(this.storage.getItem('checklistItems')).then((checklistsItems) =>
+          checklistsItems ? (JSON.parse(checklistsItems) as ChecklistItem[]) : [],
+        ),
+    });
   }
 
   saveChecklists(checklists: Checklist[]) {
